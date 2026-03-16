@@ -9,8 +9,6 @@ import {
   Min,
   IsNumber,
   MinLength,
-  Matches,
-  IsIn,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -54,17 +52,14 @@ export class CreateOrderDto {
   @Type(() => OrderItemDto)
   items: OrderItemDto[];
 
-  @ApiProperty({ example: 'mpesa', enum: ['airtel', 'mpesa', 'orange'] })
+  @ApiProperty({ example: 'M-Pesa' })
   @IsString()
-  @IsIn(['airtel', 'mpesa', 'orange'])
+  @IsNotEmpty()
   paymentMethod: string;
 
-  @ApiProperty({ example: '0991234567' })
+  @ApiProperty({ example: '+243991234567' })
   @IsString()
-  @MinLength(9)
-  @Matches(/^\d+$/, {
-    message: 'Le numéro de téléphone doit contenir uniquement des chiffres',
-  })
+  @MinLength(8)
   phoneNumber: string;
 
   @ApiProperty({ type: DeliveryAddressDto })

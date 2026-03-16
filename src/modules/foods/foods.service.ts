@@ -2,6 +2,11 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { FoodItem, FoodItemDocument } from '../../schemas/food-item.schema';
+import {
+  Category,
+  CategoryDocument,
+  CategoryStatus,
+} from '../../schemas/category.schema';
 import { CreateFoodDto } from './dto/create-food.dto';
 import { UpdateFoodDto } from './dto/update-food.dto';
 import { buildPagination } from '../../common/pagination.dto';
@@ -10,15 +15,39 @@ import { buildPagination } from '../../common/pagination.dto';
 export class FoodsService {
   constructor(
     @InjectModel(FoodItem.name) private foodModel: Model<FoodItemDocument>,
+    @InjectModel(Category.name)
+    private categoryModel: Model<CategoryDocument>,
   ) {}
+
+  private async updateCategoryFoodCount(categoryId: Types.ObjectId | string) {
+    const catId =
+      typeof categoryId === 'string'
+        ? new Types.ObjectId(categoryId)
+        : categoryId;
+    const count = await this.foodModel.countDocuments({ categoryId: catId }).exec();
+    const category = await this.categoryModel.findById(catId).exec();
+    if (!category) return;
+
+    category.foodCount = count;
+    if (category.status !== CategoryStatus.SUSPENDED) {
+      category.status =
+        count > 0 ? CategoryStatus.ACTIVE : CategoryStatus.INACTIVE;
+    }
+    await category.save();
+  }
 
   async findAll(
     page: number = 1,
     limit: number = 20,
     categoryId?: string,
     type?: string,
+    search?: string,
   ) {
     const filter: any = { isAvailable: true };
+
+    if (search) {
+      filter.nom = { $regex: search, $options: 'i' };
+    }
 
     if (categoryId) {
       if (!Types.ObjectId.isValid(categoryId)) {
@@ -54,7 +83,9 @@ export class FoodsService {
       categoryId: new Types.ObjectId(dto.categoryId),
       restaurantId: new Types.ObjectId(dto.restaurantId),
     });
-    return food.save();
+    const saved = await food.save();
+    await this.updateCategoryFoodCount(saved.categoryId);
+    return saved;
   }
 
   async update(id: string, dto: UpdateFoodDto) {
@@ -64,6 +95,8 @@ export class FoodsService {
         message: `Le plat avec l'id ${id} n'existe pas`,
       });
     }
+
+    const oldFood = await this.foodModel.findById(id).exec();
 
     const updateData: any = { ...dto };
     if (dto.categoryId)
@@ -80,6 +113,16 @@ export class FoodsService {
         message: `Le plat avec l'id ${id} n'existe pas`,
       });
     }
+
+    if (
+      oldFood &&
+      dto.categoryId &&
+      oldFood.categoryId.toString() !== dto.categoryId
+    ) {
+      await this.updateCategoryFoodCount(oldFood.categoryId);
+      await this.updateCategoryFoodCount(food.categoryId);
+    }
+
     return food;
   }
 
@@ -97,5 +140,6 @@ export class FoodsService {
         message: `Le plat avec l'id ${id} n'existe pas`,
       });
     }
+    await this.updateCategoryFoodCount(result.categoryId);
   }
 }

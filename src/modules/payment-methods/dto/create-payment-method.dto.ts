@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsNotEmpty, IsOptional, IsBoolean } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsBoolean, Matches } from 'class-validator';
 
 export class CreatePaymentMethodDto {
   @ApiProperty({ example: 'M-Pesa' })
@@ -7,15 +7,28 @@ export class CreatePaymentMethodDto {
   @IsNotEmpty()
   name: string;
 
-  @ApiProperty({ example: '#4CAF50' })
+  @ApiProperty({ example: 'https://example.com/logo.png' })
   @IsString()
   @IsNotEmpty()
-  color: string;
+  logo: string;
 
   @ApiProperty({ example: 'mobile_money' })
   @IsString()
   @IsNotEmpty()
   type: string;
+
+  @ApiProperty({ example: 'Congo (RDC)' })
+  @IsString()
+  @IsNotEmpty()
+  country: string;
+
+  @ApiProperty({ example: '+243' })
+  @IsString()
+  @IsNotEmpty()
+  @Matches(/^\+\d{1,4}$/, {
+    message: 'Le code pays doit commencer par + suivi de 1 à 4 chiffres',
+  })
+  countryCode: string;
 
   @ApiPropertyOptional({ example: true })
   @IsOptional()

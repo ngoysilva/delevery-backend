@@ -15,3 +15,14 @@ export class CreateCategoryDto {
   @IsNotEmpty()
   image: string;
 }
+
+export class ToggleCategoryStatusDto {
+  @ApiProperty({
+    enum: ['active', 'suspended'],
+    example: 'suspended',
+    description: 'Nouveau statut (active ou suspended)',
+  })
+  @IsString()
+  @IsNotEmpty()
+  status: 'active' | 'suspended';
+}

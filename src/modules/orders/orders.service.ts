@@ -12,11 +12,6 @@ import { CartItem, CartItemDocument } from '../../schemas/cart-item.schema';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { buildPagination } from '../../common/pagination.dto';
 
-const PAYMENT_LABELS: Record<string, string> = {
-  airtel: 'Airtel Money',
-  mpesa: 'M-Pesa',
-  orange: 'Orange Money',
-};
 
 @Injectable()
 export class OrdersService {
@@ -86,7 +81,7 @@ export class OrdersService {
       userId: new Types.ObjectId(userId),
       items: orderItems,
       total,
-      paymentMethod: PAYMENT_LABELS[dto.paymentMethod] || dto.paymentMethod,
+      paymentMethod: dto.paymentMethod,
       phoneNumber: dto.phoneNumber,
       status: 'pending',
       deliveryAddress: dto.deliveryAddress,
@@ -99,6 +94,9 @@ export class OrdersService {
       },
     });
 
+    const qrCode = `ORD-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+    order.qrCode = qrCode;
+
     const saved = await order.save();
 
     await this.cartModel
@@ -108,13 +106,17 @@ export class OrdersService {
     return saved;
   }
 
-  async findAll(userId: string, page: number = 1, limit: number = 20) {
-    const filter = { userId: new Types.ObjectId(userId) };
+  async findAll(userId: string | null, page: number = 1, limit: number = 20) {
+    const filter: any = {};
+    if (userId && Types.ObjectId.isValid(userId)) {
+      filter.userId = new Types.ObjectId(userId);
+    }
     const skip = (page - 1) * limit;
 
     const [data, total] = await Promise.all([
       this.orderModel
         .find(filter)
+        .populate('deliveryPersonId', 'name phone avatar')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
@@ -127,24 +129,21 @@ export class OrdersService {
 
   async findOne(id: string) {
     if (!Types.ObjectId.isValid(id)) return null;
-    return this.orderModel.findById(id).exec();
+    return this.orderModel
+      .findById(id)
+      .populate('deliveryPersonId', 'name phone avatar')
+      .exec();
   }
 
-  async confirmDelivery(id: string) {
-    if (!Types.ObjectId.isValid(id)) {
-      throw new NotFoundException({
-        errorCode: 'NOT_FOUND',
-        message: `La commande avec l'id ${id} n'existe pas`,
-      });
-    }
+  private static readonly STATUS_FLOW: Record<string, string> = {
+    pending: 'confirmed',
+    confirmed: 'preparing',
+    preparing: 'en_route',
+    en_route: 'delivered',
+  };
 
-    const order = await this.orderModel.findById(id).exec();
-    if (!order) {
-      throw new NotFoundException({
-        errorCode: 'NOT_FOUND',
-        message: `La commande avec l'id ${id} n'existe pas`,
-      });
-    }
+  async updateStatus(id: string, newStatus?: string) {
+    const order = await this.findOneOrFail(id);
 
     if (order.status === 'delivered') {
       throw new ConflictException({
@@ -153,13 +152,113 @@ export class OrdersService {
       });
     }
 
-    const now = new Date();
-    const qrCode = `ORD-${id.slice(-5)}-CONFIRMED-${now.toISOString()}`;
+    const nextStatus = newStatus || OrdersService.STATUS_FLOW[order.status];
+    if (!nextStatus) {
+      throw new BadRequestException({
+        errorCode: 'INVALID_STATUS',
+        message: `Transition impossible depuis le statut "${order.status}"`,
+      });
+    }
 
-    order.status = 'delivered';
-    order.deliveredAt = now;
-    order.qrCode = qrCode;
+    order.status = nextStatus;
+    if (nextStatus === 'confirmed') order.confirmedAt = new Date();
+    if (nextStatus === 'delivered') order.deliveredAt = new Date();
 
     return order.save();
+  }
+
+  async assignDelivery(orderId: string, deliveryPersonId: string) {
+    const order = await this.findOneOrFail(orderId);
+
+    if (!Types.ObjectId.isValid(deliveryPersonId)) {
+      throw new BadRequestException({
+        errorCode: 'VALIDATION_ERROR',
+        message: 'ID livreur invalide',
+      });
+    }
+
+    order.deliveryPersonId = new Types.ObjectId(deliveryPersonId);
+    return order.save();
+  }
+
+  async getDeliveryOrders(
+    deliveryPersonId: string,
+    page: number = 1,
+    limit: number = 20,
+  ) {
+    const filter = {
+      deliveryPersonId: new Types.ObjectId(deliveryPersonId),
+      status: { $ne: 'delivered' },
+    };
+    const skip = (page - 1) * limit;
+
+    const [data, total] = await Promise.all([
+      this.orderModel.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).exec(),
+      this.orderModel.countDocuments(filter).exec(),
+    ]);
+
+    return { data, pagination: buildPagination(page, limit, total) };
+  }
+
+  async getDeliveryHistory(
+    deliveryPersonId: string,
+    page: number = 1,
+    limit: number = 20,
+  ) {
+    const filter = {
+      deliveryPersonId: new Types.ObjectId(deliveryPersonId),
+      status: 'delivered',
+    };
+    const skip = (page - 1) * limit;
+
+    const [data, total] = await Promise.all([
+      this.orderModel.find(filter)
+        .populate('userId', 'name phone')
+        .sort({ deliveredAt: -1, updatedAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .exec(),
+      this.orderModel.countDocuments(filter).exec(),
+    ]);
+
+    return { data, pagination: buildPagination(page, limit, total) };
+  }
+
+  async confirmByQrCode(qrCode: string) {
+    const order = await this.orderModel.findOne({ qrCode }).exec();
+    if (!order) {
+      throw new NotFoundException({
+        errorCode: 'NOT_FOUND',
+        message: 'Commande introuvable avec ce QR code',
+      });
+    }
+
+    if (order.status === 'delivered') {
+      throw new ConflictException({
+        errorCode: 'ALREADY_DELIVERED',
+        message: 'Cette commande a déjà été livrée',
+      });
+    }
+
+    order.status = 'delivered';
+    order.deliveredAt = new Date();
+    return order.save();
+  }
+
+  private async findOneOrFail(id: string) {
+    if (!Types.ObjectId.isValid(id)) {
+      throw new NotFoundException({
+        errorCode: 'NOT_FOUND',
+        message: `Commande introuvable`,
+      });
+    }
+    const order = await this.orderModel.findById(id).exec();
+    if (!order) {
+      throw new NotFoundException({
+        errorCode: 'NOT_FOUND',
+        message: `Commande introuvable`,
+      });
+    }
+    return order;
   }
 }

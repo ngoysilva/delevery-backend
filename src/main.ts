@@ -40,8 +40,8 @@ async function bootstrap() {
   SwaggerModule.setup('api/docs', app, document);
 
   const port = process.env.PORT || 5000;
-  await app.listen(port);
-  console.log(`🚀 FoodDash API running on http://localhost:${port}`);
+  await app.listen(port, '0.0.0.0');
+  console.log(`🚀 FoodDash API running on http://0.0.0.0:${port}`);
   console.log(`📚 Swagger docs at http://localhost:${port}/api/docs`);
 }
 void bootstrap();

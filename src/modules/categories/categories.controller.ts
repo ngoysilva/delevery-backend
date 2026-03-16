@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Put,
+  Patch,
   Delete,
   Param,
   Query,
@@ -12,9 +13,9 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { CategoriesService } from './categories.service';
-import { CreateCategoryDto } from './dto/create-category.dto';
+import { CreateCategoryDto, ToggleCategoryStatusDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
-import { PaginationQueryDto } from '../../common/pagination.dto';
+import { CategoryQueryDto } from './dto/category-query.dto';
 import {
   successResponse,
   paginatedResponse,
@@ -28,12 +29,21 @@ export class CategoriesController {
   @Get()
   @ApiOperation({ summary: 'Liste de toutes les catégories' })
   @ApiResponse({ status: 200, description: 'Liste des catégories' })
-  async findAll(@Query() query: PaginationQueryDto) {
+  async findAll(@Query() query: CategoryQueryDto) {
     const result = await this.categoriesService.findAll(
       query.page,
       query.limit,
+      query.status,
     );
     return paginatedResponse(result.data, result.pagination);
+  }
+
+  @Get('stats')
+  @ApiOperation({ summary: 'Statistiques des catégories' })
+  @ApiResponse({ status: 200, description: 'Statistiques' })
+  async getStats() {
+    const stats = await this.categoriesService.getStats();
+    return successResponse(stats);
   }
 
   @Get(':id')
@@ -68,6 +78,30 @@ export class CategoriesController {
   async update(@Param('id') id: string, @Body() dto: UpdateCategoryDto) {
     const category = await this.categoriesService.update(id, dto);
     return successResponse(category, 'Catégorie mise à jour');
+  }
+
+  @Patch(':id/status')
+  @ApiOperation({ summary: 'Activer ou suspendre une catégorie' })
+  @ApiResponse({ status: 200, description: 'Statut mis à jour' })
+  @ApiResponse({ status: 404, description: 'Catégorie introuvable' })
+  async toggleStatus(
+    @Param('id') id: string,
+    @Body() dto: ToggleCategoryStatusDto,
+  ) {
+    const category = await this.categoriesService.toggleStatus(id, dto.status);
+    return successResponse(category, 'Statut mis à jour');
+  }
+
+  @Post('sync-food-counts')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Synchroniser les compteurs de plats' })
+  @ApiResponse({
+    status: 200,
+    description: 'Compteurs synchronisés',
+  })
+  async syncFoodCounts() {
+    await this.categoriesService.syncFoodCounts();
+    return successResponse(null, 'Compteurs synchronisés avec succès');
   }
 
   @Delete(':id')

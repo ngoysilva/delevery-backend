@@ -20,9 +20,17 @@ import { successResponse } from '../../common/api-response.helper';
 export class PromosController {
   constructor(private readonly promosService: PromosService) {}
 
+  @Get('list')
+  @ApiOperation({ summary: 'Liste de toutes les promos (backoffice)' })
+  @ApiResponse({ status: 200, description: 'Liste des promos' })
+  async findAll() {
+    const promos = await this.promosService.findAll();
+    return successResponse(promos);
+  }
+
   @Get()
-  @ApiOperation({ summary: 'Bannières promotionnelles actives' })
-  @ApiResponse({ status: 200, description: 'Liste des promos actives' })
+  @ApiOperation({ summary: 'Bannières promotionnelles actives (app mobile)' })
+  @ApiResponse({ status: 200, description: 'Liste des promos actives et dans la période' })
   async findActive() {
     const promos = await this.promosService.findActive();
     return successResponse(promos);

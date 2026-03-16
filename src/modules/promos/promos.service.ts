@@ -11,6 +11,10 @@ export class PromosService {
     @InjectModel(Promo.name) private promoModel: Model<PromoDocument>,
   ) {}
 
+  async findAll() {
+    return this.promoModel.find().sort({ createdAt: -1 }).exec();
+  }
+
   async findActive() {
     const now = new Date();
     return this.promoModel

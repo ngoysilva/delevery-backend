@@ -352,20 +352,26 @@ export class SeedService {
     const paymentMethods = await this.pmModel.insertMany([
       {
         name: 'Airtel Money',
-        color: '#FF0000',
+        logo: 'https://i.pinimg.com/736x/fe/6d/5f/fe6d5fe2443668b417384ede46531bee.jpg',
         type: 'mobile_money',
+        country: 'Congo (RDC)',
+        countryCode: '+243',
         isActive: true,
       },
       {
         name: 'M-Pesa',
-        color: '#4CAF50',
+        logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/15/M-PESA_LOGO-01.svg/200px-M-PESA_LOGO-01.svg.png',
         type: 'mobile_money',
+        country: 'Congo (RDC)',
+        countryCode: '+243',
         isActive: true,
       },
       {
         name: 'Orange Money',
-        color: '#FF6600',
+        logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c8/Orange_logo.svg/200px-Orange_logo.svg.png',
         type: 'mobile_money',
+        country: 'Congo (RDC)',
+        countryCode: '+243',
         isActive: true,
       },
     ]);

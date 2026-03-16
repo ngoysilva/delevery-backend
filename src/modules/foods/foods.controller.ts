@@ -36,6 +36,7 @@ export class FoodsController {
       query.limit,
       query.categoryId,
       query.type,
+      query.search,
     );
     return paginatedResponse(result.data, result.pagination);
   }

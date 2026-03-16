@@ -77,11 +77,11 @@ export class Order {
   phoneNumber: string;
 
   @ApiProperty({
-    enum: ['pending', 'confirmed', 'preparing', 'delivered'],
+    enum: ['pending', 'confirmed', 'preparing', 'en_route', 'delivered'],
     example: 'pending',
   })
   @Prop({
-    enum: ['pending', 'confirmed', 'preparing', 'delivered'],
+    enum: ['pending', 'confirmed', 'preparing', 'en_route', 'delivered'],
     default: 'pending',
   })
   status: string;
@@ -97,6 +97,10 @@ export class Order {
     default: null,
   })
   restaurantLocation: RestaurantLocation;
+
+  @ApiProperty({ nullable: true })
+  @Prop({ type: Types.ObjectId, ref: 'User', default: null })
+  deliveryPersonId: Types.ObjectId;
 
   @ApiProperty({ nullable: true })
   @Prop({ default: null })

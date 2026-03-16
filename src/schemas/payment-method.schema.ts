@@ -10,13 +10,21 @@ export class PaymentMethod {
   @Prop({ required: true })
   name: string;
 
-  @ApiProperty({ example: '#4CAF50' })
+  @ApiProperty({ example: 'https://example.com/logo.png' })
   @Prop({ required: true })
-  color: string;
+  logo: string;
 
   @ApiProperty({ example: 'mobile_money' })
   @Prop({ required: true })
   type: string;
+
+  @ApiProperty({ example: 'Congo (RDC)' })
+  @Prop({ required: true })
+  country: string;
+
+  @ApiProperty({ example: '+243' })
+  @Prop({ required: true })
+  countryCode: string;
 
   @ApiProperty({ example: true })
   @Prop({ default: true })
